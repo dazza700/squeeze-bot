@@ -79,21 +79,21 @@ def daily_signal_scan():
             logger.error(f"{coin}: entry failed — {e}")
             continue
 
-        # Place hard SL stop order
-        try:
-            sl_res = hl.place_stop_market(
-                coin,
-                is_buy     = not is_long,      # close direction
-                size       = sizing["size_coin"],
-                trigger_price = sizing["sl_price"],
-            )
-        except Exception as e:
-            logger.warning(f"{coin}: SL order failed — {e}")
-
-        # Recalculate sl_price based on actual fill
+        # Recalculate sl_price based on actual fill and correct direction
         actual_sl = round(
             fill_price * (1 - SL_PCT) if is_long else fill_price * (1 + SL_PCT), 6
         )
+
+        # Place hard SL stop order (use actual_sl so direction is always correct)
+        try:
+            sl_res = hl.place_stop_market(
+                coin,
+                is_buy        = not is_long,   # sell to close long / buy to close short
+                size          = sizing["size_coin"],
+                trigger_price = actual_sl,     # correct for both long and short
+            )
+        except Exception as e:
+            logger.warning(f"{coin}: SL order failed — {e}")
 
         pm.open_position(
             coin         = coin,
