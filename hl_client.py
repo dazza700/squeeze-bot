@@ -190,7 +190,7 @@ def cancel_all_orders(coin: str):
 def market_close(coin: str, size: float, is_long: bool, slippage: float = 0.002) -> dict:
     """Market-close a position (reduce_only)."""
     _, exchange = _get_clients()
-    # To close a long we sell; to close a short we buy
-    result = exchange.market_open(coin, not is_long, size, slippage=slippage)
+    # exchange.market_close handles reduce_only internally — safe even if size has rounding drift
+    result = exchange.market_close(coin, sz=size, slippage=slippage)
     logger.info(f"{coin}: market_close size={size} → {result}")
     return result
