@@ -99,6 +99,15 @@ def get_open_positions() -> dict:
     return positions
 
 
+def get_mid_price(coin: str) -> float:
+    """Real-time mid price from HL order book — use in monitor for intraday SL checks."""
+    info, _ = _get_clients()
+    mids = info.all_mids()
+    if coin not in mids:
+        raise ValueError(f"No mid price for {coin}")
+    return float(mids[coin])
+
+
 def get_open_orders(coin: str) -> list:
     """Return list of open orders for a coin."""
     info, _ = _get_clients()

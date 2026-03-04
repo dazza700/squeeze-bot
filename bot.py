@@ -145,13 +145,24 @@ def monitor_positions():
         # Position closed externally
         if live is None:
             logger.info(f"{coin}: no longer open on HL — recording external close")
+            # FIX: Use real price + compute PnL instead of logging price=0.0
+            is_long = pos.get("side", "long") == "long"
+            close_price, pnl = 0.0, 0.0
+            try:
+                close_price = hl.get_mid_price(coin)
+                pnl = (close_price - pos["entry_price"]) / pos["entry_price"] * pos["notional_usd"]
+                if not is_long:
+                    pnl = -pnl
+            except Exception:
+                pass
             tlog.log_event(coin, "EXTERNAL_CLOSE", pos.get("side","long"),
-                           pos["size"], 0.0, account_equity=equity,
+                           pos["size"], close_price, pnl, account_equity=equity,
                            notes="Closed externally")
             pm.close_position(coin)
             continue
 
-        # Get latest candle high/low
+        # Get latest candle high/low for trailing stop update (daily H/L is correct here)
+        # FIX: Also get real-time mid price separately for hard SL breach check
         try:
             df            = hl.fetch_candles(coin, lookback=5)
             current_high  = float(df["high"].iloc[-1])
@@ -161,6 +172,12 @@ def monitor_positions():
             current_price = float(live.get("entry", pos["entry_price"]))
             current_high  = current_price
             current_low   = current_price
+
+        # Use real-time mid price for the actual SL breach check
+        try:
+            current_price = hl.get_mid_price(coin)
+        except Exception:
+            pass  # fall back to daily candle close
 
         side = pos.get("side", "long")
         sl   = pos["sl_price"]
