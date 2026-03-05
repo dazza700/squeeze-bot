@@ -60,7 +60,17 @@ def fetch_candles(coin: str, lookback: int = 60) -> pd.DataFrame:
         })
 
     df = pd.DataFrame(rows).sort_values("timestamp").reset_index(drop=True)
-    logger.info(f"{coin}: fetched {len(df)} candles, last close {df['close'].iloc[-1]:.4f}")
+
+    # Drop the last (incomplete / in-progress) candle.
+    # The signal scan runs just after UTC midnight (00:05–00:15).  At that point
+    # Hyperliquid returns the completed previous-day candle PLUS a brand-new
+    # candle that is only a few minutes old.  Evaluating that micro-candle gives
+    # near-zero volume, distorted ATR, and wrong close prices — causing every
+    # strategy filter to fail.  We always want the last *fully closed* candle.
+    if len(df) > 1:
+        df = df.iloc[:-1].reset_index(drop=True)
+
+    logger.info(f"{coin}: fetched {len(df)} completed candles, last close {df['close'].iloc[-1]:.4f}")
     return df
 
 
